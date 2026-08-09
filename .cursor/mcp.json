@@ -2,16 +2,7 @@
   "mcpServers": {
     "edgar-desk": {
       "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/Users/karim.fatehi/Documents/GitHub/pydai-1",
-        "edgar-desk",
-        "mcp"
-      ],
-      "env": {
-        "EDGAR_SEC_USER_AGENT": "EDGAR Desk learning project (contact@example.com)"
-      }
+      "args": ["run", "--directory", "${workspaceFolder}", "edgar-desk", "mcp"]
     }
   }
 }

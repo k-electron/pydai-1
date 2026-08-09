@@ -22,6 +22,7 @@ grade answers against real numbers instead of relying only on an LLM judge.
 - [Ollama](https://ollama.com), running
 - [uv](https://docs.astral.sh/uv/)
 - Docker, running
+- Node 20+ and npm — only for the optional [web UI](#web-ui)
 
 **What it will use.** The three models are about **37 GB** of download and roughly 40 GB
 of disk. Inference is memory-bound: 32 GB of RAM is a realistic floor for the default
@@ -167,8 +168,10 @@ at http://localhost:8233.
 - **Traces**: Jaeger at http://localhost:16686 — pick a service named `edgar-desk-*` to
   see a full agent run: model calls, tool calls, and their timings.
 - **Workflows**: Temporal UI at http://localhost:8233
-- **MCP from Cursor**: already wired up in [.cursor/mcp.json](.cursor/mcp.json); restart
-  Cursor and the EDGAR tools appear.
+- **MCP from Cursor**: [.cursor/mcp.json](.cursor/mcp.json) is committed and uses
+  `${workspaceFolder}`, so it works from wherever you cloned the repo. Open the project in
+  Cursor and the EDGAR tools appear. The MCP server only reads the database — it never
+  calls the SEC — so it needs no credentials.
 
 ## Testing
 
