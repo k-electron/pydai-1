@@ -1,0 +1,61 @@
+[project]
+name = "edgar-desk"
+version = "0.1.0"
+description = "A local-only SEC EDGAR research agent, built to exercise the Pydantic AI v2 ecosystem"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    # Pinned exactly: `pydantic-ai-harness` is 0.x and may break on minor bumps.
+    "pydantic-ai-slim[duckduckgo,evals,logfire,mcp,openai,retries,spec,temporal,ui]==2.27.0",
+    "pydantic-ai-harness==0.18.0",
+    "logfire==4.40.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.30.0",
+    "asyncpg>=0.30.0",
+    "pgvector>=0.3.6",
+    "httpx>=0.28.1",
+    "fastapi>=0.118.0",
+    "uvicorn[standard]>=0.34.0",
+    "typer>=0.15.1",
+    "rich>=13.9.4",
+]
+
+[project.scripts]
+edgar-desk = "edgar_desk.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.2",
+    "inline-snapshot>=0.20.0",
+    "dirty-equals>=0.8.0",
+    "ruff>=0.9.2",
+]
+# Pulls torch (~2.5 GB). Kept out of the default install until Phase 3 needs it.
+rerank = [
+    "sentence-transformers>=3.4.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    # The embedder holds one cached HTTP client for the life of the process by design.
+    # At interpreter teardown that surfaces as an unclosed-socket ResourceWarning, which
+    # says nothing about the code under test.
+    "ignore::ResourceWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "single"

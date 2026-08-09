@@ -1,0 +1,77 @@
+# Local infrastructure for EDGAR Desk.
+#
+# Ports are deliberately offset from the defaults: this machine already runs other
+# stacks on 5432/5433, 6333, 8123 and 9000. Everything binds to 127.0.0.1 only.
+name: edgar-desk
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17-trixie
+    container_name: edgar-postgres
+    environment:
+      POSTGRES_USER: edgar
+      POSTGRES_PASSWORD: edgar
+      POSTGRES_DB: edgar
+    ports:
+      - '127.0.0.1:5442:5432'
+    volumes:
+      - edgar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U edgar -d edgar']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Jaeger v2 is built on the OpenTelemetry Collector, so it ingests OTLP directly on
+  # 4317/4318. That replaces the usual separate collector container with one service.
+  jaeger:
+    image: jaegertracing/jaeger:2.20.0
+    container_name: edgar-jaeger
+    ports:
+      - '127.0.0.1:16686:16686' # web UI
+      - '127.0.0.1:4317:4317' # OTLP gRPC
+      - '127.0.0.1:4318:4318' # OTLP HTTP
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://localhost:16686/']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Temporal keeps its own state in its own database on the shared Postgres server.
+  temporal:
+    image: temporalio/auto-setup:1.29.7
+    container_name: edgar-temporal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: edgar
+      POSTGRES_PWD: edgar
+      POSTGRES_SEEDS: postgres
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+    ports:
+      - '127.0.0.1:7233:7233'
+    healthcheck:
+      # auto-setup binds the frontend to the container's own IP, not loopback, so the
+      # check has to dial the service name rather than localhost.
+      test: ['CMD', 'temporal', 'operator', 'cluster', 'health', '--address', 'temporal:7233']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  temporal-ui:
+    image: temporalio/ui:2.53.1
+    container_name: edgar-temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:8233
+    ports:
+      - '127.0.0.1:8233:8080'
+
+volumes:
+  edgar-pgdata:
