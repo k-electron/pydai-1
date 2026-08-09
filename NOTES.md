@@ -411,3 +411,49 @@ against the authenticated user in `deps`.
 `publish_brief` therefore re-checks its own invariants after approval: a brief with an
 uncited finding is refused even when approved, because the approver agreed to publish,
 not to re-verify. There is a test for exactly that.
+
+## Cold start — verifying against a warm environment hides setup bugs
+
+Everything above was tested on the machine that built it, where the models, the corpus and
+the containers already existed. A genuine cold start (fresh clone from GitHub, fresh
+`uv sync`, empty database) failed on the very first command.
+
+### `db-init` could never have worked on a new database
+
+```
+ValueError: unknown type: public.vector
+```
+
+A circular dependency: `create_pool` registers the pgvector codec on every connection it
+opens, registering requires the `vector` type to exist, and the extension is created by
+`schema.sql` -- which needs a pool to run. Pool creation failed before the schema ever
+executed.
+
+It stayed invisible for the entire build because, back in Phase 1, the container check ran
+`CREATE EXTENSION IF NOT EXISTS vector` by hand. That one throwaway command left the type
+in place, so every later run found it already there. The 114 tests all passed against that
+same already-initialized database.
+
+`ensure_extension()` now creates the extension on a plain connection before the pool
+exists, breaking the cycle.
+
+### The regression test for it was, at first, fake
+
+The obvious test -- make a scratch database, point the settings at it, initialize -- passed
+even with the fix removed. `db/__init__.py` does `from edgar_desk.settings import
+get_settings`, so patching `edgar_desk.settings.get_settings` left `db`'s already-bound
+reference pointing at the original, and the test was quietly exercising the real,
+already-working database.
+
+Redirecting through the environment variable and clearing the `lru_cache` fixes it, and an
+assertion now confirms the test is actually pointing where it thinks. Worth verifying a
+regression test fails without its fix; this one did not, and would have locked in a false
+sense of coverage.
+
+### One documented claim was simply wrong
+
+The README said the SEC rejects requests without a `User-Agent`. It does not, at least not
+today: the app ships a placeholder and ingestion completed fine without setting anything.
+The honest version is that the placeholder works but identifies you as someone else and is
+shared by everyone who skips the step, which makes it the string most likely to get
+rate-limited.

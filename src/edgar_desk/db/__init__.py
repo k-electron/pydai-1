@@ -22,8 +22,29 @@ async def _init_connection(conn: asyncpg.Connection) -> None:
     await register_vector(conn)
 
 
+async def ensure_extension() -> None:
+    """Create the `vector` extension before anything tries to use its type.
+
+    Without this, a brand-new database cannot be initialized at all. `create_pool`
+    registers the pgvector codec on every connection it opens, and registering requires
+    the `vector` type to already exist -- but the extension is created by `schema.sql`,
+    which needs a pool to run. Pool creation therefore fails with
+    `ValueError: unknown type: public.vector` before the schema ever executes.
+
+    Bootstrapping it here on a plain connection, with no codec registration, breaks the
+    cycle. It stayed hidden during development because the extension had been created by
+    hand while checking the container, so every later run found it already present.
+    """
+    conn = await asyncpg.connect(get_settings().database_url)
+    try:
+        await conn.execute('CREATE EXTENSION IF NOT EXISTS vector')
+    finally:
+        await conn.close()
+
+
 async def create_pool(min_size: int = 1, max_size: int = 10) -> asyncpg.Pool:
     """Open a connection pool against the configured database."""
+    await ensure_extension()
     return await asyncpg.create_pool(
         get_settings().database_url,
         min_size=min_size,

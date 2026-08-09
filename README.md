@@ -70,12 +70,16 @@ Hugging Face the first time it runs.
 
 ### 3. Tell the SEC who you are
 
-The SEC requires a descriptive `User-Agent` with **real contact information** on every
-request, and rate-limits or blocks traffic without one. Set this before ingesting:
+The SEC's fair-access policy asks every automated client to identify itself with a
+descriptive `User-Agent` containing real contact information.
 
 ```bash
 export EDGAR_SEC_USER_AGENT="Your Name (you@example.com)"
 ```
+
+Ingestion will run without this — the app ships a placeholder that the SEC currently
+accepts — but the placeholder identifies you as someone else, and it is shared by everyone
+who skips this step, so it is the string most likely to end up rate-limited. Set it.
 
 There is no `.env` loading — configuration is read from the process environment, so export
 it in your shell or prefix the command.
@@ -216,9 +220,10 @@ places.
 **`doctor` says a model is missing.** `ollama list` to see what you have; the names must
 match exactly, tag included.
 
-**Ingestion fails or returns 403.** Almost always `EDGAR_SEC_USER_AGENT`. The SEC wants
-real contact details and blocks traffic without them. It is also rate-limited, so a
-partial run is safe to re-run — ingestion is resumable and skips filings already loaded.
+**Ingestion returns 403 or stalls.** The SEC rate-limits by IP and by `User-Agent`; set
+`EDGAR_SEC_USER_AGENT` to your own contact details rather than sharing the default. A
+partial run is always safe to re-run: ingestion is resumable and skips filings already
+loaded.
 
 **Answers are slow.** Expected: this is local inference. `--no-rerank` on `analyze` skips
 the cross-encoder, and `-t NVDA` limits ingestion to one company if you only want to try
