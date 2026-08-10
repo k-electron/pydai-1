@@ -16,10 +16,16 @@ const backend = process.env.EDGAR_API_URL ?? 'http://127.0.0.1:8000';
  */
 function localAddresses() {
   const found = new Set(['localhost', '127.0.0.1', '::1']);
-  for (const addresses of Object.values(os.networkInterfaces())) {
-    for (const address of addresses ?? []) {
-      if (!address.internal) found.add(address.address);
+  try {
+    for (const addresses of Object.values(os.networkInterfaces())) {
+      for (const address of addresses ?? []) {
+        if (!address.internal) found.add(address.address);
+      }
     }
+  } catch {
+    // `uv_interface_addresses` fails outright in some sandboxes and hardened CI
+    // runners. This runs at config load, so an uncaught throw here fails the whole
+    // build over a dev-only convenience; loopback alone is a fine fallback.
   }
   for (const extra of (process.env.EDGAR_DEV_ORIGINS ?? '').split(',')) {
     const trimmed = extra.trim();
