@@ -242,6 +242,13 @@ def serve(
     """Serve the streaming chat API for the web UI."""
     import uvicorn
 
+    # Uvicorn prints its own address, which is an API-only server; without this, the
+    # obvious next step is to open that address and get a 404.
+    console.print(
+        f'[bold]API only[/bold] on http://{host}:{port} — no pages here.\n'
+        'For the chat interface, run [cyan]cd web && npm run dev[/cyan] '
+        'and open [cyan]http://localhost:3000[/cyan]\n'
+    )
     uvicorn.run('edgar_desk.web.app:app', host=host, port=port, reload=reload)
 
 
